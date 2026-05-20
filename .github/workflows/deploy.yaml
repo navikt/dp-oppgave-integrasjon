@@ -1,0 +1,93 @@
+name: Deploy
+
+on:
+  push:
+    branches-ignore:
+      - 'dependabot/**'
+
+jobs:
+  build:
+    name: Build and publish Docker image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      checks: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/wrapper-validation@v6
+      - uses: gradle/actions/setup-gradle@v6
+        env:
+          DEPENDENCY_GRAPH_INCLUDE_CONFIGURATIONS: compileClasspath|runtimeClasspath
+        with:
+          dependency-graph: generate-and-submit
+          cache-encryption-key: ${{ secrets.GradleEncryptionKey }}
+      - run: ./gradlew --configuration-cache build installDist
+      - name: docker-build-push
+        uses: nais/docker-build-push@v0
+        id: docker-build-push
+        with:
+          team: teamdagpenger
+          tag: ${{ github.sha }}
+          identity_provider: ${{ secrets.NAIS_WORKLOAD_IDENTITY_PROVIDER }}
+          project_id: ${{ vars.NAIS_MANAGEMENT_PROJECT_ID }}
+          salsa: false
+    outputs:
+      image: ${{ steps.docker-build-push.outputs.image }}
+      digest: ${{ steps.docker-build-push.outputs.digest }}
+
+  salsa:
+    name: Generate SBOM, attest and sign image
+    needs: [build]
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: "write"
+    steps:
+      - uses: navikt/dagpenger/actions/attest-sign@master
+        with:
+          digest: ${{ needs.build.outputs.digest }}
+          identity_provider: ${{ secrets.NAIS_WORKLOAD_IDENTITY_PROVIDER }}
+          project_id: ${{ vars.NAIS_MANAGEMENT_PROJECT_ID }}
+          team: teamdagpenger
+
+  deploy-dev:
+    name: Deploy to dev
+    needs: [build]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: dev-gcp
+    permissions:
+      contents: "read"
+      id-token: "write"
+    steps:
+      - uses: actions/checkout@v6
+      - uses: nais/deploy/actions/deploy@v2
+        env:
+          CLUSTER: dev-gcp
+          RESOURCE: .nais/nais.yaml
+          VAR: image=${{ needs.build.outputs.image }}
+          VARS: .nais/vars-dev.yaml
+          PRINT_PAYLOAD: true
+
+  deploy-prod:
+    name: Deploy to Production
+    needs: [build]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: prod-gcp
+    permissions:
+      contents: "read"
+      id-token: "write"
+    steps:
+      - uses: actions/checkout@v6
+      - uses: nais/deploy/actions/deploy@v2
+        env:
+          CLUSTER: prod-gcp
+          RESOURCE: .nais/nais.yaml
+          VAR: image=${{ needs.build.outputs.image }}
+          VARS: .nais/vars-prod.yaml
+          PRINT_PAYLOAD: true
