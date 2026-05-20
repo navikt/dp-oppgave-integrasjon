@@ -1,4 +1,4 @@
-package no.nav.dagpenger.oppgave.integrasjon
+package no.nav.dagpenger.oppgave.integrasjon.mottak
 
 import com.github.navikt.tbd_libs.rapids_and_rivers.JsonMessage
 import com.github.navikt.tbd_libs.rapids_and_rivers.River
@@ -7,6 +7,8 @@ import com.github.navikt.tbd_libs.rapids_and_rivers_api.MessageMetadata
 import com.github.navikt.tbd_libs.rapids_and_rivers_api.RapidsConnection
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.micrometer.core.instrument.MeterRegistry
+import no.nav.dagpenger.oppgave.integrasjon.Oppgave
+import no.nav.dagpenger.oppgave.integrasjon.markerer.OppgaveMarkerer
 
 private val log = KotlinLogging.logger {}
 
@@ -54,6 +56,6 @@ internal class OppgaveOpprettetMottak(
 
         meterRegistry.counter("oppgaver_mottatt_total").increment()
 
-        oppgaveMarkerer.markerOppgave(ident, oppgaveId, versjon)
+        oppgaveMarkerer.markerOppgave(Oppgave(oppgaveId = oppgaveId, versjon = versjon, ident = ident))
     }
 }

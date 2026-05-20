@@ -1,4 +1,4 @@
-package no.nav.dagpenger.oppgave.integrasjon
+package no.nav.dagpenger.oppgave.integrasjon.klient
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 

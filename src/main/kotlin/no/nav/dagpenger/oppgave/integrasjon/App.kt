@@ -2,6 +2,8 @@ package no.nav.dagpenger.oppgave.integrasjon
 
 import com.github.navikt.tbd_libs.rapids_and_rivers_api.RapidsConnection
 import io.github.oshai.kotlinlogging.KotlinLogging
+import no.nav.dagpenger.oppgave.integrasjon.markerer.LoggOppgaveMarkerer
+import no.nav.dagpenger.oppgave.integrasjon.mottak.OppgaveOpprettetMottak
 import no.nav.helse.rapids_rivers.RapidApplication
 
 private val log = KotlinLogging.logger {}

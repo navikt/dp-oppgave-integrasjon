@@ -3,6 +3,8 @@ package no.nav.dagpenger.oppgave.integrasjon
 import com.github.navikt.tbd_libs.rapids_and_rivers.test_support.TestRapid
 import io.mockk.mockk
 import io.mockk.verify
+import no.nav.dagpenger.oppgave.integrasjon.markerer.OppgaveMarkerer
+import no.nav.dagpenger.oppgave.integrasjon.mottak.OppgaveOpprettetMottak
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
@@ -30,7 +32,7 @@ class OppgaveOpprettetMottakTest {
             ),
         )
 
-        verify(exactly = 1) { oppgaveMarkerer.markerOppgave("12345678901", 123456, 1) }
+        verify(exactly = 1) { oppgaveMarkerer.markerOppgave(Oppgave(oppgaveId = 123456, versjon = 1, ident = "12345678901")) }
     }
 
     @Test
@@ -45,7 +47,7 @@ class OppgaveOpprettetMottakTest {
             ),
         )
 
-        verify(exactly = 0) { oppgaveMarkerer.markerOppgave(any(), any(), any()) }
+        verify(exactly = 0) { oppgaveMarkerer.markerOppgave(any()) }
     }
 
     @Test
@@ -60,7 +62,7 @@ class OppgaveOpprettetMottakTest {
             ),
         )
 
-        verify(exactly = 0) { oppgaveMarkerer.markerOppgave(any(), any(), any()) }
+        verify(exactly = 0) { oppgaveMarkerer.markerOppgave(any()) }
     }
 
     @Test
@@ -84,7 +86,7 @@ class OppgaveOpprettetMottakTest {
             """.trimIndent(),
         )
 
-        verify(exactly = 0) { oppgaveMarkerer.markerOppgave(any(), any(), any()) }
+        verify(exactly = 0) { oppgaveMarkerer.markerOppgave(any()) }
     }
 
     private fun oppgaveOpprettetMelding(
