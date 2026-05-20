@@ -24,9 +24,7 @@ internal class DpSakOppgaveMarkerer(
 
         sikkerlogg.info { "Tagger oppgave ${oppgave.oppgaveId} for ident=${oppgave.ident}" }
 
-        val tagget = runBlocking { oppgaveKlient.taggMedDpSak(oppgave.oppgaveId) }
-        if (tagget) {
-            meterRegistry.counter("oppgaver_tagget_total").increment()
-        }
+        runBlocking { oppgaveKlient.taggMedDpSak(oppgave.oppgaveId) }
+        meterRegistry.counter("oppgaver_tagget_total").increment()
     }
 }

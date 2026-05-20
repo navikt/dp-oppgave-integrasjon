@@ -41,16 +41,15 @@ internal class OppgaveKlientTest {
             }
 
         val klient = OppgaveKlient(baseUrl = baseUrl, httpClient = httpClient(mockEngine))
-        val tagget = runBlocking { klient.taggMedDpSak(123) }
+        runBlocking { klient.taggMedDpSak(123) }
 
-        tagget shouldBe true
         requests.size shouldBe 2
         requests[0] shouldBe (HttpMethod.Get to "$baseUrl/api/v2/oppgaver/123")
         requests[1].first shouldBe HttpMethod.Patch
     }
 
     @Test
-    fun `skal returnere false naar DP-sak allerede finnes`() {
+    fun `skal ikke kaste exception naar DP-sak allerede finnes`() {
         val mockEngine =
             MockEngine { request ->
                 respond(
@@ -60,9 +59,7 @@ internal class OppgaveKlientTest {
             }
 
         val klient = OppgaveKlient(baseUrl = baseUrl, httpClient = httpClient(mockEngine))
-        val tagget = runBlocking { klient.taggMedDpSak(456) }
-
-        tagget shouldBe false
+        runBlocking { klient.taggMedDpSak(456) }
     }
 
     @Test
@@ -76,7 +73,7 @@ internal class OppgaveKlientTest {
             }
 
         val klient = OppgaveKlient(baseUrl = baseUrl, httpClient = httpClient(mockEngine))
-        val exception = shouldThrow<IllegalStateException> { runBlocking { klient.taggMedDpSak(789) } }
+        val exception = shouldThrow<OppgaveKlientException> { runBlocking { klient.taggMedDpSak(789) } }
 
         exception.message shouldBe "Oppgave 789 har allerede 2 nøkkelord, kan ikke tagge med DP-sak"
     }
@@ -108,9 +105,8 @@ internal class OppgaveKlientTest {
             }
 
         val klient = OppgaveKlient(baseUrl = baseUrl, httpClient = httpClient(mockEngine))
-        val tagget = runBlocking { klient.taggMedDpSak(100) }
+        runBlocking { klient.taggMedDpSak(100) }
 
-        tagget shouldBe true
         patchCount shouldBe 2
     }
 
@@ -131,7 +127,7 @@ internal class OppgaveKlientTest {
 
         val klient = OppgaveKlient(baseUrl = baseUrl, httpClient = httpClient(mockEngine))
 
-        shouldThrow<IllegalStateException> { runBlocking { klient.taggMedDpSak(200) } }
+        shouldThrow<OppgaveKlientException> { runBlocking { klient.taggMedDpSak(200) } }
     }
 
     @Test
@@ -147,7 +143,7 @@ internal class OppgaveKlientTest {
 
         val klient = OppgaveKlient(baseUrl = baseUrl, httpClient = httpClient(mockEngine))
 
-        shouldThrow<IllegalStateException> { runBlocking { klient.taggMedDpSak(999) } }
+        shouldThrow<OppgaveKlientException> { runBlocking { klient.taggMedDpSak(999) } }
     }
 
     @Test
@@ -173,9 +169,8 @@ internal class OppgaveKlientTest {
             }
 
         val klient = OppgaveKlient(baseUrl = baseUrl, httpClient = httpClient(mockEngine))
-        val tagget = runBlocking { klient.taggMedDpSak(300) }
+        runBlocking { klient.taggMedDpSak(300) }
 
-        tagget shouldBe true
         patchBody!! shouldBe """{"nokkelord":["Annet","DP-sak"],"meta":{"versjon":4}}"""
     }
 

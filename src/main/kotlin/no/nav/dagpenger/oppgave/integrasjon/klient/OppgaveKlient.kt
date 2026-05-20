@@ -3,16 +3,21 @@ package no.nav.dagpenger.oppgave.integrasjon.klient
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
+import io.ktor.client.plugins.expectSuccess
 import io.ktor.client.request.get
 import io.ktor.client.request.patch
 import io.ktor.client.request.setBody
-import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 
 private val log = KotlinLogging.logger {}
 private val sikkerlogg = KotlinLogging.logger("tjenestekall")
+
+class OppgaveKlientException(
+    message: String,
+    cause: Throwable? = null,
+) : RuntimeException(message, cause)
 
 internal class OppgaveKlient(
     private val baseUrl: String,
@@ -24,67 +29,76 @@ internal class OppgaveKlient(
         private const val MAX_NOKKELORD = 2
     }
 
-    /**
-     * Tagger oppgave med "DP-sak" nøkkelord.
-     * Kaster exception ved feil slik at meldingen retryes.
-     * @return true hvis tagget, false hvis allerede tagget
-     */
-    suspend fun taggMedDpSak(oppgaveId: Long): Boolean {
+    sealed class PatchStatus {
+        data class OK(
+            val message: String,
+        ) : PatchStatus()
+
+        object Conflict : PatchStatus()
+    }
+
+    suspend fun taggMedDpSak(oppgaveId: Long) {
+        var status: PatchStatus? = null
+        var retries = 0
+        while (status !is PatchStatus.OK && retries++ < MAX_RETRIES) {
+            status = merkOppgave(oppgaveId)
+        }
+        if (status !is PatchStatus.OK) {
+            throw OppgaveKlientException("Kunne ikke merke oppgave $oppgaveId med $NOKKELORD")
+        }
+    }
+
+    private suspend fun merkOppgave(oppgaveId: Long): PatchStatus {
         val oppgave = hentOppgave(oppgaveId)
 
-        if (NOKKELORD in oppgave.nokkelord) {
-            log.info { "Oppgave $oppgaveId er allerede tagget med $NOKKELORD" }
-            return false
+        if (oppgave.nokkelord.size >= MAX_NOKKELORD) {
+            throw OppgaveKlientException(
+                "Oppgave ${oppgave.id} har allerede ${oppgave.nokkelord.size} nøkkelord, kan ikke tagge med $NOKKELORD",
+            )
         }
-
-        check(oppgave.nokkelord.size < MAX_NOKKELORD) {
-            "Oppgave $oppgaveId har allerede ${oppgave.nokkelord.size} nøkkelord, kan ikke tagge med $NOKKELORD"
+        return if (NOKKELORD in oppgave.nokkelord) {
+            log.info { "Oppgave ${oppgave.id} er allerede tagget med $NOKKELORD" }
+            PatchStatus.OK("Oppgave ${oppgave.id} er allerede tagget med $NOKKELORD")
+        } else {
+            patchOppgave(oppgave)
         }
-
-        patchMedRetry(oppgaveId, oppgave.nokkelord + NOKKELORD, oppgave.versjon)
-        log.info { "Oppgave $oppgaveId tagget med $NOKKELORD" }
-        return true
     }
 
-    private suspend fun patchMedRetry(
-        oppgaveId: Long,
-        nokkelord: List<String>,
-        startVersjon: Int,
-    ) {
-        var versjon = startVersjon
-        repeat(MAX_RETRIES) { forsøk ->
-            val response =
-                httpClient.patch("$baseUrl/api/v2/oppgaver/$oppgaveId") {
+    private suspend fun patchOppgave(oppgave: OppgaveResponse): PatchStatus =
+        runCatching {
+            httpClient
+                .patch("$baseUrl/api/v2/oppgaver/${oppgave.id}") {
                     contentType(ContentType.Application.Json)
-                    setBody(PatchOppgaveRequest(nokkelord = nokkelord, meta = PatchMeta(versjon = versjon)))
+                    setBody(
+                        PatchOppgaveRequest(
+                            nokkelord = oppgave.nokkelord + NOKKELORD,
+                            meta = PatchMeta(versjon = oppgave.versjon),
+                        ),
+                    )
+                }.let {
+                    when (it.status) {
+                        HttpStatusCode.OK -> PatchStatus.OK("Oppgave ${it.body<OppgaveResponse>().id} merket")
+                        HttpStatusCode.Conflict -> {
+                            PatchStatus.Conflict
+                        }
+                        else -> throw OppgaveKlientException("PATCH oppgave ${oppgave.id} feilet med ${it.status}")
+                    }
                 }
-
-            when (response.status) {
-                HttpStatusCode.OK -> return
-                HttpStatusCode.Conflict -> {
-                    log.info { "409 Conflict for oppgave $oppgaveId, forsøk ${forsøk + 1}/$MAX_RETRIES" }
-                    val fersk = hentOppgave(oppgaveId)
-                    if (NOKKELORD in fersk.nokkelord) return
-                    versjon = fersk.versjon
-                }
-                else -> {
-                    val body = response.bodyAsText()
-                    sikkerlogg.error { "PATCH oppgave $oppgaveId feilet: $body" }
-                    error("PATCH oppgave $oppgaveId feilet med ${response.status}")
-                }
-            }
+        }.getOrElse {
+            throw OppgaveKlientException("PATCH oppgave ${oppgave.id} feilet", it)
         }
-        error("Ga opp etter $MAX_RETRIES forsøk med 409 Conflict for oppgave $oppgaveId")
-    }
 
-    private suspend fun hentOppgave(oppgaveId: Long): OppgaveResponse {
-        val response = httpClient.get("$baseUrl/api/v2/oppgaver/$oppgaveId")
-        if (response.status == HttpStatusCode.OK) return response.body<OppgaveResponse>()
-
-        val body = response.bodyAsText()
-        sikkerlogg.error { "GET oppgave $oppgaveId feilet: $body" }
-        error("GET oppgave $oppgaveId feilet med ${response.status}")
-    }
+    private suspend fun hentOppgave(oppgaveId: Long): OppgaveResponse =
+        runCatching {
+            httpClient
+                .get("$baseUrl/api/v2/oppgaver/$oppgaveId") {
+                    expectSuccess = true
+                }.body<OppgaveResponse>()
+        }.onFailure {
+            log.error { "GET oppgave $oppgaveId feilet: $it" }
+        }.getOrElse {
+            throw OppgaveKlientException("GET oppgave $oppgaveId feilet", it)
+        }
 }
 
 internal data class OppgaveResponse(
