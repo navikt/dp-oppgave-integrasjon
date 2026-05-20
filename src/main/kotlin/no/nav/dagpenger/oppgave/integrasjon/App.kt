@@ -20,8 +20,7 @@ internal object App : RapidsConnection.StatusListener {
         RapidApplication.create(Configuration.config).also {
             OppgaveOpprettetMottak(
                 rapidsConnection = it,
-                dpSaksbehandlingKlient = DpSaksbehandlingKlient(Configuration.config),
-                oppgaveKlient = OppgaveKlient(Configuration.config),
+                oppgaveMarkerer = LoggOppgaveMarkerer(), // Bytt til DpSakOppgaveMarkerer når klientene er klare
             )
         }
 

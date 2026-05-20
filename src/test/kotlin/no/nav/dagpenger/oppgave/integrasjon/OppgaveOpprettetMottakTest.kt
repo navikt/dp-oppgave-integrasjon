@@ -1,30 +1,25 @@
 package no.nav.dagpenger.oppgave.integrasjon
 
 import com.github.navikt.tbd_libs.rapids_and_rivers.test_support.TestRapid
-import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
 class OppgaveOpprettetMottakTest {
-    private val dpSaksbehandlingKlient = mockk<DpSaksbehandlingKlient>()
-    private val oppgaveKlient = mockk<OppgaveKlient>(relaxed = true)
+    private val oppgaveMarkerer = mockk<OppgaveMarkerer>(relaxed = true)
     private val testRapid = TestRapid()
 
     @BeforeEach
     fun setup() {
         OppgaveOpprettetMottak(
             rapidsConnection = testRapid,
-            dpSaksbehandlingKlient = dpSaksbehandlingKlient,
-            oppgaveKlient = oppgaveKlient,
+            oppgaveMarkerer = oppgaveMarkerer,
         )
     }
 
     @Test
-    fun `skal tagge oppgave når person har sak`() {
-        every { dpSaksbehandlingKlient.harSak("12345678901") } returns true
-
+    fun `skal kalle oppgaveMarkerer for DAG-oppgave med FOLKEREGISTERIDENT`() {
         testRapid.sendTestMessage(
             oppgaveOpprettetMelding(
                 oppgaveId = 123456,
@@ -33,28 +28,9 @@ class OppgaveOpprettetMottakTest {
                 ident = "12345678901",
                 identType = "FOLKEREGISTERIDENT",
             ),
-            OppgaveOpprettetMottak.OPPGAVEHENDELSE_TOPIC,
         )
 
-        verify(exactly = 1) { oppgaveKlient.taggMedDpSak(123456, 1) }
-    }
-
-    @Test
-    fun `skal ikke tagge oppgave når person ikke har sak`() {
-        every { dpSaksbehandlingKlient.harSak("12345678901") } returns false
-
-        testRapid.sendTestMessage(
-            oppgaveOpprettetMelding(
-                oppgaveId = 123456,
-                versjon = 1,
-                tema = "DAG",
-                ident = "12345678901",
-                identType = "FOLKEREGISTERIDENT",
-            ),
-            OppgaveOpprettetMottak.OPPGAVEHENDELSE_TOPIC,
-        )
-
-        verify(exactly = 0) { oppgaveKlient.taggMedDpSak(any(), any()) }
+        verify(exactly = 1) { oppgaveMarkerer.markerOppgave("12345678901", 123456, 1) }
     }
 
     @Test
@@ -67,10 +43,9 @@ class OppgaveOpprettetMottakTest {
                 ident = "12345678901",
                 identType = "FOLKEREGISTERIDENT",
             ),
-            OppgaveOpprettetMottak.OPPGAVEHENDELSE_TOPIC,
         )
 
-        verify(exactly = 0) { dpSaksbehandlingKlient.harSak(any()) }
+        verify(exactly = 0) { oppgaveMarkerer.markerOppgave(any(), any(), any()) }
     }
 
     @Test
@@ -83,10 +58,9 @@ class OppgaveOpprettetMottakTest {
                 ident = "999888777",
                 identType = "ORGNR",
             ),
-            OppgaveOpprettetMottak.OPPGAVEHENDELSE_TOPIC,
         )
 
-        verify(exactly = 0) { dpSaksbehandlingKlient.harSak(any()) }
+        verify(exactly = 0) { oppgaveMarkerer.markerOppgave(any(), any(), any()) }
     }
 
     @Test
@@ -110,7 +84,7 @@ class OppgaveOpprettetMottakTest {
             """.trimIndent(),
         )
 
-        verify(exactly = 0) { dpSaksbehandlingKlient.harSak(any()) }
+        verify(exactly = 0) { oppgaveMarkerer.markerOppgave(any(), any(), any()) }
     }
 
     private fun oppgaveOpprettetMelding(

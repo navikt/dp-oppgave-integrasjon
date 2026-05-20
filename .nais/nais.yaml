@@ -9,8 +9,8 @@ spec:
   image: "{{ image }}"
   port: 8080
   replicas:
-    min: 1
-    max: 2
+    min: 2
+    max: 4
   resources:
     requests:
       cpu: 15m
@@ -42,8 +42,6 @@ spec:
       rules:
         - application: dp-saksbehandling
           namespace: teamdagpenger
-        - application: "{{ oppgave.app }}"
-          namespace: oppgavehandtering
       external:
         - host: "{{ oppgave.host }}"
   env:

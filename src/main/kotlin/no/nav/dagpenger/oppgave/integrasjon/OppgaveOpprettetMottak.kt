@@ -9,26 +9,22 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import io.micrometer.core.instrument.MeterRegistry
 
 private val log = KotlinLogging.logger {}
-private val sikkerlogg = KotlinLogging.logger("tjenestekall")
 
 internal class OppgaveOpprettetMottak(
     rapidsConnection: RapidsConnection,
-    private val dpSaksbehandlingKlient: DpSaksbehandlingKlient,
-    private val oppgaveKlient: OppgaveKlient,
+    private val oppgaveMarkerer: OppgaveMarkerer,
 ) : River.PacketListener {
     companion object {
-        const val OPPGAVEHENDELSE_TOPIC = "oppgavehandtering.oppgavehendelse-v1"
-
         internal val rapidFilter: River.() -> Unit = {
             precondition {
-                it.forbid("@event_name") // Kun meldinger fra ekstern topic (ikke rapid)
+                it.forbid("@event_name")
                 it.requireValue("hendelse.hendelsestype", "OPPGAVE_OPPRETTET")
+                it.requireValue("oppgave.kategorisering.tema", "DAG")
             }
             validate {
                 it.requireKey(
                     "oppgave.oppgaveId",
                     "oppgave.versjon",
-                    "oppgave.kategorisering.tema",
                     "oppgave.bruker.ident",
                     "oppgave.bruker.identType",
                 )
@@ -46,46 +42,18 @@ internal class OppgaveOpprettetMottak(
         metadata: MessageMetadata,
         meterRegistry: MeterRegistry,
     ) {
-        val tema = packet["oppgave.kategorisering.tema"].asText()
-        if (tema != "DAG") return
-
-        val identType = packet["oppgave.bruker.identType"].asText()
+        val identType = packet["oppgave.bruker.identType"].asString()
         if (identType != "FOLKEREGISTERIDENT") {
-            log.info { "Ignorerer oppgave med identType=$identType" }
+            log.warn { "Uventet identType=$identType for DAG-oppgave ${packet["oppgave.oppgaveId"].asLong()}" }
             return
         }
 
-        val ident = packet["oppgave.bruker.ident"].asText()
+        val ident = packet["oppgave.bruker.ident"].asString()
         val oppgaveId = packet["oppgave.oppgaveId"].asLong()
         val versjon = packet["oppgave.versjon"].asInt()
 
         meterRegistry.counter("oppgaver_mottatt_total").increment()
 
-        // TODO: 🔴 Red zone — implementer forretningslogikken selv
-        // 1. Sjekk om personen har sak i dp-saksbehandling
-        // 2. Hvis ja: GET oppgave for å lese nøkkelord + versjon
-        // 3. PATCH med appended "DP-sak" nøkkelord
-        taggOppgaveHvisHarSak(ident, oppgaveId, versjon, meterRegistry)
-    }
-
-    private fun taggOppgaveHvisHarSak(
-        ident: String,
-        oppgaveId: Long,
-        versjon: Int,
-        meterRegistry: MeterRegistry,
-    ) {
-        val harSak = dpSaksbehandlingKlient.harSak(ident)
-        if (!harSak) {
-            log.info { "Person har ingen sak i dp-saksbehandling, skipper oppgave $oppgaveId" }
-            return
-        }
-
-        log.info { "Person har sak — tagger oppgave $oppgaveId med nøkkelord DP-sak" }
-        sikkerlogg.info { "Tagger oppgave $oppgaveId for ident (se securelog)" }
-
-        // TODO: Avklar om GET er nødvendig (nyopprettede oppgaver har kanskje 0 nøkkelord)
-        oppgaveKlient.taggMedDpSak(oppgaveId, versjon)
-
-        meterRegistry.counter("oppgaver_tagget_total").increment()
+        oppgaveMarkerer.markerOppgave(ident, oppgaveId, versjon)
     }
 }
