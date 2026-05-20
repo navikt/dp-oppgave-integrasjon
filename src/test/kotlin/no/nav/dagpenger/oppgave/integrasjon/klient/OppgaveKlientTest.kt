@@ -1,7 +1,7 @@
 package no.nav.dagpenger.oppgave.integrasjon.klient
 
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.shouldBe
-import io.kotest.matchers.types.shouldBeInstanceOf
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -41,16 +41,16 @@ internal class OppgaveKlientTest {
             }
 
         val klient = OppgaveKlient(baseUrl = baseUrl, httpClient = httpClient(mockEngine))
-        val resultat = runBlocking { klient.taggMedDpSak(123) }
+        val tagget = runBlocking { klient.taggMedDpSak(123) }
 
-        resultat shouldBe OppgaveKlient.Resultat.Tagget
+        tagget shouldBe true
         requests.size shouldBe 2
         requests[0] shouldBe (HttpMethod.Get to "$baseUrl/api/v2/oppgaver/123")
         requests[1].first shouldBe HttpMethod.Patch
     }
 
     @Test
-    fun `skal returnere AlleredeTagget naar DP-sak allerede finnes`() {
+    fun `skal returnere false naar DP-sak allerede finnes`() {
         val mockEngine =
             MockEngine { request ->
                 respond(
@@ -60,13 +60,13 @@ internal class OppgaveKlientTest {
             }
 
         val klient = OppgaveKlient(baseUrl = baseUrl, httpClient = httpClient(mockEngine))
-        val resultat = runBlocking { klient.taggMedDpSak(456) }
+        val tagget = runBlocking { klient.taggMedDpSak(456) }
 
-        resultat shouldBe OppgaveKlient.Resultat.AlleredeTagget
+        tagget shouldBe false
     }
 
     @Test
-    fun `skal returnere NokkelordFull naar oppgaven allerede har 2 nokkelord`() {
+    fun `skal kaste exception naar oppgaven allerede har 2 nokkelord`() {
         val mockEngine =
             MockEngine { request ->
                 respond(
@@ -76,9 +76,9 @@ internal class OppgaveKlientTest {
             }
 
         val klient = OppgaveKlient(baseUrl = baseUrl, httpClient = httpClient(mockEngine))
-        val resultat = runBlocking { klient.taggMedDpSak(789) }
+        val exception = shouldThrow<IllegalStateException> { runBlocking { klient.taggMedDpSak(789) } }
 
-        resultat shouldBe OppgaveKlient.Resultat.NokkelordFull
+        exception.message shouldBe "Oppgave 789 har allerede 2 nøkkelord, kan ikke tagge med DP-sak"
     }
 
     @Test
@@ -108,14 +108,14 @@ internal class OppgaveKlientTest {
             }
 
         val klient = OppgaveKlient(baseUrl = baseUrl, httpClient = httpClient(mockEngine))
-        val resultat = runBlocking { klient.taggMedDpSak(100) }
+        val tagget = runBlocking { klient.taggMedDpSak(100) }
 
-        resultat shouldBe OppgaveKlient.Resultat.Tagget
+        tagget shouldBe true
         patchCount shouldBe 2
     }
 
     @Test
-    fun `skal gi opp etter 3 retries med 409`() {
+    fun `skal kaste exception etter 3 retries med 409`() {
         val mockEngine =
             MockEngine { request ->
                 when (request.method) {
@@ -130,13 +130,12 @@ internal class OppgaveKlientTest {
             }
 
         val klient = OppgaveKlient(baseUrl = baseUrl, httpClient = httpClient(mockEngine))
-        val resultat = runBlocking { klient.taggMedDpSak(200) }
 
-        resultat.shouldBeInstanceOf<OppgaveKlient.Resultat.Feil>()
+        shouldThrow<IllegalStateException> { runBlocking { klient.taggMedDpSak(200) } }
     }
 
     @Test
-    fun `skal returnere Feil naar GET feiler`() {
+    fun `skal kaste exception naar GET feiler`() {
         val mockEngine =
             MockEngine { request ->
                 respond(
@@ -147,9 +146,8 @@ internal class OppgaveKlientTest {
             }
 
         val klient = OppgaveKlient(baseUrl = baseUrl, httpClient = httpClient(mockEngine))
-        val resultat = runBlocking { klient.taggMedDpSak(999) }
 
-        resultat.shouldBeInstanceOf<OppgaveKlient.Resultat.Feil>()
+        shouldThrow<IllegalStateException> { runBlocking { klient.taggMedDpSak(999) } }
     }
 
     @Test
@@ -175,9 +173,9 @@ internal class OppgaveKlientTest {
             }
 
         val klient = OppgaveKlient(baseUrl = baseUrl, httpClient = httpClient(mockEngine))
-        val resultat = runBlocking { klient.taggMedDpSak(300) }
+        val tagget = runBlocking { klient.taggMedDpSak(300) }
 
-        resultat shouldBe OppgaveKlient.Resultat.Tagget
+        tagget shouldBe true
         patchBody!! shouldBe """{"nokkelord":["Annet","DP-sak"],"meta":{"versjon":4}}"""
     }
 

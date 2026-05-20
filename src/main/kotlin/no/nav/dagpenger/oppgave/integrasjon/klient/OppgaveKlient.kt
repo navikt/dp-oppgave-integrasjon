@@ -24,99 +24,66 @@ internal class OppgaveKlient(
         private const val MAX_NOKKELORD = 2
     }
 
-    sealed class Resultat {
-        data object Tagget : Resultat()
+    /**
+     * Tagger oppgave med "DP-sak" nøkkelord.
+     * Kaster exception ved feil slik at meldingen retryes.
+     * @return true hvis tagget, false hvis allerede tagget
+     */
+    suspend fun taggMedDpSak(oppgaveId: Long): Boolean {
+        val oppgave = hentOppgave(oppgaveId)
 
-        data object AlleredeTagget : Resultat()
-
-        data object NokkelordFull : Resultat()
-
-        data class Feil(
-            val melding: String,
-        ) : Resultat()
-    }
-
-    suspend fun taggMedDpSak(oppgaveId: Long): Resultat {
-        val oppgave =
-            hentOppgave(oppgaveId)
-                ?: return Resultat.Feil("Kunne ikke hente oppgave $oppgaveId")
-
-        return when {
-            NOKKELORD in oppgave.nokkelord -> Resultat.AlleredeTagget
-            oppgave.nokkelord.size >= MAX_NOKKELORD -> {
-                log.error { "Oppgave $oppgaveId har allerede ${oppgave.nokkelord.size} nøkkelord, kan ikke tagge" }
-                Resultat.NokkelordFull
-            }
-            else -> patchMedRetry(oppgaveId, oppgave.nokkelord + NOKKELORD, oppgave.versjon)
+        if (NOKKELORD in oppgave.nokkelord) {
+            log.info { "Oppgave $oppgaveId er allerede tagget med $NOKKELORD" }
+            return false
         }
+
+        check(oppgave.nokkelord.size < MAX_NOKKELORD) {
+            "Oppgave $oppgaveId har allerede ${oppgave.nokkelord.size} nøkkelord, kan ikke tagge med $NOKKELORD"
+        }
+
+        patchMedRetry(oppgaveId, oppgave.nokkelord + NOKKELORD, oppgave.versjon)
+        log.info { "Oppgave $oppgaveId tagget med $NOKKELORD" }
+        return true
     }
 
     private suspend fun patchMedRetry(
         oppgaveId: Long,
         nokkelord: List<String>,
         startVersjon: Int,
-    ): Resultat {
+    ) {
         var versjon = startVersjon
         repeat(MAX_RETRIES) { forsøk ->
-            when (val result = patchNokkelord(oppgaveId, nokkelord, versjon)) {
-                is PatchResult.Ok -> {
-                    log.info { "Oppgave $oppgaveId tagget med $NOKKELORD" }
-                    return Resultat.Tagget
+            val response =
+                httpClient.patch("$baseUrl/api/v2/oppgaver/$oppgaveId") {
+                    contentType(ContentType.Application.Json)
+                    setBody(PatchOppgaveRequest(nokkelord = nokkelord, meta = PatchMeta(versjon = versjon)))
                 }
-                is PatchResult.Conflict -> {
+
+            when (response.status) {
+                HttpStatusCode.OK -> return
+                HttpStatusCode.Conflict -> {
                     log.info { "409 Conflict for oppgave $oppgaveId, forsøk ${forsøk + 1}/$MAX_RETRIES" }
-                    val fersk =
-                        hentOppgave(oppgaveId)
-                            ?: return Resultat.Feil("Kunne ikke hente oppgave $oppgaveId ved retry")
-                    if (NOKKELORD in fersk.nokkelord) return Resultat.AlleredeTagget
+                    val fersk = hentOppgave(oppgaveId)
+                    if (NOKKELORD in fersk.nokkelord) return
                     versjon = fersk.versjon
                 }
-                is PatchResult.Feil -> return Resultat.Feil(result.melding)
+                else -> {
+                    val body = response.bodyAsText()
+                    sikkerlogg.error { "PATCH oppgave $oppgaveId feilet: $body" }
+                    error("PATCH oppgave $oppgaveId feilet med ${response.status}")
+                }
             }
         }
-        return Resultat.Feil("Ga opp etter $MAX_RETRIES forsøk med 409 Conflict for oppgave $oppgaveId")
+        error("Ga opp etter $MAX_RETRIES forsøk med 409 Conflict for oppgave $oppgaveId")
     }
 
-    private suspend fun hentOppgave(oppgaveId: Long): OppgaveResponse? {
+    private suspend fun hentOppgave(oppgaveId: Long): OppgaveResponse {
         val response = httpClient.get("$baseUrl/api/v2/oppgaver/$oppgaveId")
         if (response.status == HttpStatusCode.OK) return response.body<OppgaveResponse>()
 
         val body = response.bodyAsText()
-        log.error { "GET oppgave $oppgaveId feilet med ${response.status}" }
         sikkerlogg.error { "GET oppgave $oppgaveId feilet: $body" }
-        return null
-    }
-
-    private sealed class PatchResult {
-        data object Ok : PatchResult()
-
-        data object Conflict : PatchResult()
-
-        data class Feil(
-            val melding: String,
-        ) : PatchResult()
-    }
-
-    private suspend fun patchNokkelord(
-        oppgaveId: Long,
-        nokkelord: List<String>,
-        versjon: Int,
-    ): PatchResult {
-        val response =
-            httpClient.patch("$baseUrl/api/v2/oppgaver/$oppgaveId") {
-                contentType(ContentType.Application.Json)
-                setBody(PatchOppgaveRequest(nokkelord = nokkelord, meta = PatchMeta(versjon = versjon)))
-            }
-        return when (response.status) {
-            HttpStatusCode.OK -> PatchResult.Ok
-            HttpStatusCode.Conflict -> PatchResult.Conflict
-            else -> {
-                val body = response.bodyAsText()
-                log.error { "PATCH oppgave $oppgaveId feilet med ${response.status}" }
-                sikkerlogg.error { "PATCH oppgave $oppgaveId feilet: $body" }
-                PatchResult.Feil("PATCH feilet med ${response.status}")
-            }
-        }
+        error("GET oppgave $oppgaveId feilet med ${response.status}")
     }
 }
 

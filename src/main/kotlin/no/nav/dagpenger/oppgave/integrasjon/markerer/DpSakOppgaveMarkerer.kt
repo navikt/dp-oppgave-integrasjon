@@ -22,19 +22,11 @@ internal class DpSakOppgaveMarkerer(
             return
         }
 
-        log.info { "Person har sak — tagger oppgave ${oppgave.oppgaveId} med nøkkelord DP-sak" }
         sikkerlogg.info { "Tagger oppgave ${oppgave.oppgaveId} for ident=${oppgave.ident}" }
 
-        val resultat = runBlocking { oppgaveKlient.taggMedDpSak(oppgave.oppgaveId) }
-
-        when (resultat) {
-            is OppgaveKlient.Resultat.Tagget -> meterRegistry.counter("oppgaver_tagget_total").increment()
-            is OppgaveKlient.Resultat.AlleredeTagget -> log.info { "Oppgave ${oppgave.oppgaveId} var allerede tagget" }
-            is OppgaveKlient.Resultat.NokkelordFull -> meterRegistry.counter("oppgaver_fullt_nokkelord_total").increment()
-            is OppgaveKlient.Resultat.Feil -> {
-                log.error { "Feil ved tagging av oppgave ${oppgave.oppgaveId}: ${resultat.melding}" }
-                meterRegistry.counter("oppgaver_tagging_feilet_total").increment()
-            }
+        val tagget = runBlocking { oppgaveKlient.taggMedDpSak(oppgave.oppgaveId) }
+        if (tagget) {
+            meterRegistry.counter("oppgaver_tagget_total").increment()
         }
     }
 }
