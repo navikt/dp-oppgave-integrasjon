@@ -23,6 +23,7 @@ internal class DpSaksbehandlingKlientTest {
             MockEngine { request ->
                 request.method shouldBe HttpMethod.Post
                 request.url.toString() shouldBe "$baseUrl/person/siste-dagpenger-sak"
+                request.headers[HttpHeaders.Authorization] shouldBe "Bearer test-token"
                 val body = String(request.body.toByteArray())
                 body shouldBe """{"ident":"12345678901"}"""
                 respond(
