@@ -1,19 +1,33 @@
 package no.nav.dagpenger.oppgave.integrasjon.klient
 
-import io.github.oshai.kotlinlogging.KotlinLogging
-
-private val log = KotlinLogging.logger {}
+import io.ktor.client.HttpClient
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
+import io.ktor.http.ContentType
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.contentType
 
 internal class DpSaksbehandlingKlient(
-    config: Map<String, String>,
+    private val baseUrl: String,
+    private val httpClient: HttpClient,
 ) {
-    private val baseUrl = config.getValue("DP_SAKSBEHANDLING_URL")
-    private val scope = config.getValue("DP_SAKSBEHANDLING_SCOPE")
-
-    // TODO: 🔴 Red zone — implementer HTTP-klient med Azure CC token
-    // GET $baseUrl/intern/person/{ident}/har-sak
-    // → 200 = true, 404 = false, andre statuskoder = throw
-    fun harSak(ident: String): Boolean {
-        TODO("Implementer REST-kall til dp-saksbehandling med Azure client_credentials (scope=$scope)")
+    suspend fun harSak(ident: String): Boolean {
+        val response =
+            httpClient.post("$baseUrl/person/siste-dagpenger-sak") {
+                contentType(ContentType.Application.Json)
+                setBody(mapOf("ident" to ident))
+            }
+        return when (response.status) {
+            HttpStatusCode.OK -> true
+            HttpStatusCode.NotFound -> false
+            else -> throw DpSaksbehandlingKlientException(
+                "Uventet statuskode fra dp-saksbehandling: ${response.status}",
+            )
+        }
     }
 }
+
+class DpSaksbehandlingKlientException(
+    message: String,
+    cause: Throwable? = null,
+) : RuntimeException(message, cause)
