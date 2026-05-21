@@ -63,22 +63,6 @@ internal class OppgaveKlientTest {
     }
 
     @Test
-    fun `skal kaste exception naar oppgaven allerede har 2 nokkelord`() {
-        val mockEngine =
-            MockEngine { request ->
-                respond(
-                    content = """{"id": 789, "versjon": 2, "nokkelord": ["Foo", "Bar"]}""",
-                    headers = jsonHeaders(),
-                )
-            }
-
-        val klient = OppgaveKlient(baseUrl = baseUrl, httpClient = httpClient(mockEngine))
-        val exception = shouldThrow<OppgaveKlientException> { runBlocking { klient.taggMedDpSak(789) } }
-
-        exception.message shouldBe "Oppgave 789 har allerede 2 nøkkelord, kan ikke tagge med DP-sak"
-    }
-
-    @Test
     fun `skal retry ved 409 Conflict og lykkes paa andre forsoek`() {
         var patchCount = 0
         val mockEngine =

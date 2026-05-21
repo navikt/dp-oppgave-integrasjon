@@ -26,7 +26,6 @@ internal class OppgaveKlient(
     companion object {
         private const val NOKKELORD = "DP-sak"
         private const val MAX_RETRIES = 3
-        private const val MAX_NOKKELORD = 2
     }
 
     sealed class PatchStatus {
@@ -51,11 +50,6 @@ internal class OppgaveKlient(
     private suspend fun merkOppgave(oppgaveId: Long): PatchStatus {
         val oppgave = hentOppgave(oppgaveId)
 
-        if (oppgave.nokkelord.size >= MAX_NOKKELORD) {
-            throw OppgaveKlientException(
-                "Oppgave ${oppgave.id} har allerede ${oppgave.nokkelord.size} nøkkelord, kan ikke tagge med $NOKKELORD",
-            )
-        }
         return if (NOKKELORD in oppgave.nokkelord) {
             log.info { "Oppgave ${oppgave.id} er allerede tagget med $NOKKELORD" }
             PatchStatus.OK("Oppgave ${oppgave.id} er allerede tagget med $NOKKELORD")
