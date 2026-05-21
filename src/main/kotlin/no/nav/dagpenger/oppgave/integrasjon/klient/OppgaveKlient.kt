@@ -12,7 +12,6 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 
 private val log = KotlinLogging.logger {}
-private val sikkerlogg = KotlinLogging.logger("tjenestekall")
 
 class OppgaveKlientException(
     message: String,
@@ -29,9 +28,7 @@ internal class OppgaveKlient(
     }
 
     sealed class PatchStatus {
-        data class OK(
-            val message: String,
-        ) : PatchStatus()
+        object OK : PatchStatus()
 
         object Conflict : PatchStatus()
     }
@@ -43,39 +40,40 @@ internal class OppgaveKlient(
             status = merkOppgave(oppgaveId)
         }
         if (status !is PatchStatus.OK) {
-            throw OppgaveKlientException("Kunne ikke merke oppgave $oppgaveId med $NOKKELORD")
+            throw OppgaveKlientException("Kunne ikke merke oppgave $oppgaveId etter $MAX_RETRIES forsøk")
         }
     }
 
     private suspend fun merkOppgave(oppgaveId: Long): PatchStatus {
         val oppgave = hentOppgave(oppgaveId)
+        val oppdatert = oppgave.nokkelord.toSet() + NOKKELORD
 
-        return if (NOKKELORD in oppgave.nokkelord) {
-            log.info { "Oppgave ${oppgave.id} er allerede tagget med $NOKKELORD" }
-            PatchStatus.OK("Oppgave ${oppgave.id} er allerede tagget med $NOKKELORD")
+        return if (oppdatert == oppgave.nokkelord.toSet()) {
+            PatchStatus.OK
         } else {
-            patchOppgave(oppgave)
+            patchOppgave(oppgave, oppdatert.toList())
         }
     }
 
-    private suspend fun patchOppgave(oppgave: OppgaveResponse): PatchStatus =
+    private suspend fun patchOppgave(
+        oppgave: OppgaveResponse,
+        nokkelord: List<String>,
+    ): PatchStatus =
         runCatching {
             httpClient
                 .patch("$baseUrl/api/v2/oppgaver/${oppgave.id}") {
                     contentType(ContentType.Application.Json)
                     setBody(
                         PatchOppgaveRequest(
-                            nokkelord = oppgave.nokkelord + NOKKELORD,
+                            nokkelord = nokkelord,
                             meta = PatchMeta(versjon = oppgave.versjon),
                         ),
                     )
-                }.let {
-                    when (it.status) {
-                        HttpStatusCode.OK -> PatchStatus.OK("Oppgave ${it.body<OppgaveResponse>().id} merket")
-                        HttpStatusCode.Conflict -> {
-                            PatchStatus.Conflict
-                        }
-                        else -> throw OppgaveKlientException("PATCH oppgave ${oppgave.id} feilet med ${it.status}")
+                }.let { response ->
+                    when (response.status) {
+                        HttpStatusCode.OK -> PatchStatus.OK
+                        HttpStatusCode.Conflict -> PatchStatus.Conflict
+                        else -> throw OppgaveKlientException("PATCH oppgave ${oppgave.id} feilet med ${response.status}")
                     }
                 }
         }.getOrElse {
