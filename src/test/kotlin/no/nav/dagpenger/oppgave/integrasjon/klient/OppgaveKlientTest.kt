@@ -2,17 +2,14 @@ package no.nav.dagpenger.oppgave.integrasjon.klient
 
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.shouldBe
-import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
 import io.ktor.client.engine.mock.toByteArray
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
-import io.ktor.serialization.jackson3.jackson
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 
@@ -40,7 +37,7 @@ internal class OppgaveKlientTest {
                 }
             }
 
-        val klient = OppgaveKlient(baseUrl = baseUrl, httpClient = httpClient(mockEngine))
+        val klient = lagKlient(mockEngine)
         runBlocking { klient.taggMedDpSak(123) }
 
         requests.size shouldBe 2
@@ -58,7 +55,7 @@ internal class OppgaveKlientTest {
                 )
             }
 
-        val klient = OppgaveKlient(baseUrl = baseUrl, httpClient = httpClient(mockEngine))
+        val klient = lagKlient(mockEngine)
         runBlocking { klient.taggMedDpSak(456) }
     }
 
@@ -88,7 +85,7 @@ internal class OppgaveKlientTest {
                 }
             }
 
-        val klient = OppgaveKlient(baseUrl = baseUrl, httpClient = httpClient(mockEngine))
+        val klient = lagKlient(mockEngine)
         runBlocking { klient.taggMedDpSak(100) }
 
         patchCount shouldBe 2
@@ -109,7 +106,7 @@ internal class OppgaveKlientTest {
                 }
             }
 
-        val klient = OppgaveKlient(baseUrl = baseUrl, httpClient = httpClient(mockEngine))
+        val klient = lagKlient(mockEngine)
 
         shouldThrow<OppgaveKlientException> { runBlocking { klient.taggMedDpSak(200) } }
     }
@@ -125,7 +122,7 @@ internal class OppgaveKlientTest {
                 )
             }
 
-        val klient = OppgaveKlient(baseUrl = baseUrl, httpClient = httpClient(mockEngine))
+        val klient = lagKlient(mockEngine)
 
         shouldThrow<OppgaveKlientException> { runBlocking { klient.taggMedDpSak(999) } }
     }
@@ -152,7 +149,7 @@ internal class OppgaveKlientTest {
                 }
             }
 
-        val klient = OppgaveKlient(baseUrl = baseUrl, httpClient = httpClient(mockEngine))
+        val klient = lagKlient(mockEngine)
         runBlocking { klient.taggMedDpSak(300) }
 
         patchBody!! shouldBe """{"nokkelord":["Annet","DP-sak"],"meta":{"versjon":4}}"""
@@ -160,10 +157,6 @@ internal class OppgaveKlientTest {
 
     private fun jsonHeaders() = headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString())
 
-    private fun httpClient(engine: MockEngine): HttpClient =
-        HttpClient(engine) {
-            install(ContentNegotiation) {
-                jackson()
-            }
-        }
+    private fun lagKlient(engine: MockEngine): OppgaveKlient =
+        OppgaveKlient(baseUrl = baseUrl, tokenProvider = { "test-token" }, httpClient = createHttpClient(engine))
 }

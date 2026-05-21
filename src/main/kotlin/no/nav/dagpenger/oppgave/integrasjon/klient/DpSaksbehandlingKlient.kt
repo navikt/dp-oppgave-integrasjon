@@ -1,19 +1,23 @@
 package no.nav.dagpenger.oppgave.integrasjon.klient
 
 import io.ktor.client.HttpClient
+import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 
 internal class DpSaksbehandlingKlient(
     private val baseUrl: String,
-    private val httpClient: HttpClient,
+    private val tokenProvider: () -> String,
+    private val httpClient: HttpClient = createHttpClient(),
 ) {
     suspend fun harSak(ident: String): Boolean {
         val response =
             httpClient.post("$baseUrl/person/siste-dagpenger-sak") {
+                header(HttpHeaders.Authorization, "Bearer ${tokenProvider.invoke()}")
                 contentType(ContentType.Application.Json)
                 setBody(mapOf("ident" to ident))
             }

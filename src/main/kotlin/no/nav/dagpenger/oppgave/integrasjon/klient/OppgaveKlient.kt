@@ -5,9 +5,11 @@ import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.expectSuccess
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.request.patch
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 
@@ -20,7 +22,8 @@ class OppgaveKlientException(
 
 internal class OppgaveKlient(
     private val baseUrl: String,
-    private val httpClient: HttpClient,
+    private val tokenProvider: () -> String,
+    private val httpClient: HttpClient = createHttpClient(),
 ) {
     companion object {
         private const val NOKKELORD = "DP-sak"
@@ -62,6 +65,7 @@ internal class OppgaveKlient(
         runCatching {
             httpClient
                 .patch("$baseUrl/api/v2/oppgaver/${oppgave.id}") {
+                    header(HttpHeaders.Authorization, "Bearer ${tokenProvider.invoke()}")
                     contentType(ContentType.Application.Json)
                     setBody(
                         PatchOppgaveRequest(
@@ -84,6 +88,7 @@ internal class OppgaveKlient(
         runCatching {
             httpClient
                 .get("$baseUrl/api/v2/oppgaver/$oppgaveId") {
+                    header(HttpHeaders.Authorization, "Bearer ${tokenProvider.invoke()}")
                     expectSuccess = true
                 }.body<OppgaveResponse>()
         }.onFailure {

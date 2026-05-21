@@ -2,17 +2,14 @@ package no.nav.dagpenger.oppgave.integrasjon.klient
 
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.shouldBe
-import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
 import io.ktor.client.engine.mock.toByteArray
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
-import io.ktor.serialization.jackson3.jackson
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 
@@ -78,14 +75,6 @@ internal class DpSaksbehandlingKlientTest {
         }
     }
 
-    private fun lagKlient(mockEngine: MockEngine): DpSaksbehandlingKlient {
-        val httpClient =
-            HttpClient(mockEngine) {
-                install(ContentNegotiation) {
-                    jackson()
-                }
-                expectSuccess = false
-            }
-        return DpSaksbehandlingKlient(baseUrl, httpClient)
-    }
+    private fun lagKlient(mockEngine: MockEngine): DpSaksbehandlingKlient =
+        DpSaksbehandlingKlient(baseUrl, tokenProvider = { "test-token" }, httpClient = createHttpClient(mockEngine))
 }
