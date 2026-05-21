@@ -3,7 +3,7 @@ kafka:
 oppgavehendelseTopic: "oppgavehandtering.oppgavehendelse-v1"
 oppgave:
   app: oppgave
-  host: oppgave.intern.nav.no
+  host: oppgave.prod-fss-pub.nais.io
   scope: "api://prod-fss.oppgavehandtering.oppgave/.default"
 dpSaksbehandling:
   scope: "api://prod-gcp.teamdagpenger.dp-saksbehandling/.default"
