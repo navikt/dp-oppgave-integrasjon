@@ -23,7 +23,7 @@ internal object Configuration {
                 "DP_SAKSBEHANDLING_URL" to "http://dp-saksbehandling",
                 "DP_SAKSBEHANDLING_SCOPE" to "api://dev-gcp.teamdagpenger.dp-saksbehandling/.default",
                 "OPPGAVE_URL" to "https://oppgave-q2.intern.dev.nav.no",
-                "OPPGAVE_SCOPE" to "api://dev-fss.oppgavehandtering.oppgave-q2/.default",
+                "OPPGAVE_SCOPE" to "api://dev-fss.oppgavehandtering.oppgave/.default",
             ),
         )
 

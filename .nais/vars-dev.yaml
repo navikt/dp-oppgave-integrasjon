@@ -2,8 +2,8 @@ kafka:
   pool: nav-dev
 oppgavehendelseTopic: "oppgavehandtering.oppgavehendelse-v1"
 oppgave:
-  app: oppgave-q2
+  app: oppgave
   host: oppgave-q2.intern.dev.nav.no
-  scope: "api://dev-fss.oppgavehandtering.oppgave-q2/.default"
+  scope: "api://dev-fss.oppgavehandtering.oppgave/.default"
 dpSaksbehandling:
   scope: "api://dev-gcp.teamdagpenger.dp-saksbehandling/.default"
