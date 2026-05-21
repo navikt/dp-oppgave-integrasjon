@@ -31,7 +31,7 @@ internal class DpSaksbehandlingKlient(
     }
 }
 
-class DpSaksbehandlingKlientException(
+internal class DpSaksbehandlingKlientException(
     message: String,
     cause: Throwable? = null,
 ) : RuntimeException(message, cause)

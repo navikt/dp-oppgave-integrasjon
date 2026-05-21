@@ -17,16 +17,18 @@ internal class DpSakOppgaveMarkerer(
 ) : OppgaveMarkerer {
     override fun markerOppgave(oppgave: Oppgave) {
         runBlocking {
-            val harSak = dpSaksbehandlingKlient.harSak(oppgave.ident)
-            if (!harSak) {
-                log.info { "Person har ingen sak i dp-saksbehandling, skipper oppgave ${oppgave.oppgaveId}" }
-                return@runBlocking
+            when (dpSaksbehandlingKlient.harSak(oppgave.ident)) {
+                true -> {
+                    oppgaveKlient.taggMedDpSak(oppgave.oppgaveId)
+                    log.info { "Tagger oppgave ${oppgave.oppgaveId} med DP-sak" }
+                    sikkerlogg.info { "Tagger oppgave ${oppgave.oppgaveId} for ident=${oppgave.ident}" }
+                    meterRegistry.counter("oppgaver_tagget_total").increment()
+                }
+
+                false -> {
+                    log.info { "Person har ingen sak i dp-saksbehandling, skipper oppgave ${oppgave.oppgaveId}" }
+                }
             }
-
-            sikkerlogg.info { "Tagger oppgave ${oppgave.oppgaveId} for ident=${oppgave.ident}" }
-
-            oppgaveKlient.taggMedDpSak(oppgave.oppgaveId)
-            meterRegistry.counter("oppgaver_tagget_total").increment()
         }
     }
 }
