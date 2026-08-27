@@ -1,9 +1,10 @@
-name: Test Dependabot PRs
+name: Test Dependabot- og Renovate-PRer
 
 on:
   push:
     branches:
       - 'dependabot/**'
+      - 'renovate/**'
       - 'update-digests'
 
 jobs:
