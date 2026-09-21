@@ -1,6 +1,8 @@
 name: Test dependency PRs
 
 on:
+  workflow_dispatch:
+  merge_group:
   push:
     branches:
       - 'dependabot/**'
