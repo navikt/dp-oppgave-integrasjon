@@ -45,6 +45,8 @@ spec:
       rules:
         - application: dp-saksbehandling
           namespace: teamdagpenger
+        - application: logging
+          namespace: nais-system
       external:
         - host: "{{ oppgave.host }}"
   env:
