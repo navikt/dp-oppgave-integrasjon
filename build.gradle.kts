@@ -8,7 +8,7 @@ repositories {
     maven("https://github-package-registry-mirror.gc.nav.no/cached/maven-release")
 }
 
-val dpBibliotekerVersion = "2026.11.11-11.51.eae9ddff2009"
+val dpBibliotekerVersion = "2026.11.11-12.39.fb80454576f1"
 
 dependencies {
     implementation(libs.rapids.and.rivers)
